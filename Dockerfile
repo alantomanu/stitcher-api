@@ -1,15 +1,26 @@
-# Use Node.js LTS (Long Term Support) version with slim base
-FROM node:20-slim
+# Use Ubuntu as base image
+FROM ubuntu:22.04
 
-# Create app directory
-WORKDIR /usr/src/app
+# Set Node.js version
+ENV NODE_VERSION=20.x
 
-# Install system dependencies required for PDF processing
+# Install Node.js and npm
 RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
+    && apt-get install -y \
+    nodejs \
     poppler-utils \
     build-essential \
     poppler-data \
+    pkg-config \
+    libpoppler-dev \
+    libpoppler-cpp-dev \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /usr/src/app
 
 # Create directories for uploads and output
 RUN mkdir -p uploads output
