@@ -1,29 +1,50 @@
+// Add dotenv import at the top
+import dotenv from 'dotenv';
+
+// Configure dotenv before any other code
+dotenv.config();
+
+// First, log that we're starting
+console.log("=== SCRIPT START ===");
+
+// Import statements
 import express, { Request, Response } from "express";
 import fileUpload from "express-fileupload";
 import fs from "fs";
 import path from "path";
 import { convertPdfToSingleImage } from "./sticher";  // Import the function
-import dotenv from "dotenv";
+
 import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 
-dotenv.config();
+// Log after imports
+console.log("=== IMPORTS COMPLETED ===");
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// Configure Cloudinary with environment variables
+try {
+    console.log("=== CONFIGURING CLOUDINARY ===");
+    
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    
+    // Verify configuration
+    const config = cloudinary.config();
+    console.log("Cloudinary Config Object:", {
+        cloud_name: config.cloud_name,
+        api_key: config.api_key ? "Present" : "Missing",
+        api_secret: config.api_secret ? "Present" : "Missing"
+    });
+} catch (error) {
+    console.error("=== CLOUDINARY CONFIG ERROR ===");
+    console.error(error);
+}
 
-// Add these debug logs
-console.log('Cloudinary Config:', {
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  // Don't log the secret in production!
-});
-
+// Initialize Express
+console.log("=== INITIALIZING EXPRESS ===");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -71,23 +92,60 @@ app.post("/stitch", async (req: Request, res: Response) => {
     const outputPath = path.join(outputDir, outputFileName);
     await convertPdfToSingleImage(pdfPath, outputPath);
 
-    // Upload to Cloudinary
+    // Upload to Cloudinary with optimized settings
     try {
-      const uploadResult = await cloudinary.uploader.upload(outputPath, {
-        folder: 'stiched_image',
-        resource_type: 'image'
-      });
+      const timestamp = Date.now();
+      const imageName = `stitched_${timestamp}`;
+      
+      const uploadResult = await cloudinary.uploader.upload(
+        outputPath,
+        {
+          public_id: imageName,
+          folder: 'stiched_image',
+          resource_type: 'image',
+          overwrite: true
+        }
+      );
       console.log('Upload successful:', uploadResult);
 
-      // Cleanup temporary files
-      await fs.promises.unlink(pdfPath);
-      await fs.promises.unlink(outputPath);
+      const cloudinaryUrl = `https://res.cloudinary.com/dfivs4n49/raw/upload/v1740385239/stiched_image/${imageName}`;
+      const optimizedImageUrl = cloudinary.url(`stiched_image/${imageName}`, {
+        fetch_format: 'auto',
+        quality: 'auto'
+      });
+
+      // Cleanup files and folders
+      try {
+        // Delete individual files first
+        await fs.promises.unlink(pdfPath);
+        await fs.promises.unlink(outputPath);
+
+        // Check if folders are empty and delete them
+        const uploadFiles = await fs.promises.readdir(uploadDir);
+        const outputFiles = await fs.promises.readdir(outputDir);
+
+        if (uploadFiles.length === 0) {
+          await fs.promises.rmdir(uploadDir);
+          console.log('Uploads folder removed');
+        }
+
+        if (outputFiles.length === 0) {
+          await fs.promises.rmdir(outputDir);
+          console.log('Output folder removed');
+        }
+      } catch (cleanupError) {
+        console.error('Cleanup error:', cleanupError);
+        // Continue with response even if cleanup fails
+      }
 
       res.json({
         success: true,
         message: "PDF processed and uploaded successfully",
-        imageUrl: uploadResult.secure_url
+        imageUrl: cloudinaryUrl,
+        optimizedImageUrl: optimizedImageUrl,
+        uploadResult: uploadResult
       });
+
     } catch (uploadError) {
       console.error('Cloudinary Upload Error:', uploadError);
       res.status(500).json({

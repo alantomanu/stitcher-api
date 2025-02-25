@@ -1,4 +1,4 @@
-# Use Node.js LTS (Long Term Support) version
+# Use Node.js LTS (Long Term Support) version with slim base
 FROM node:20-slim
 
 # Create app directory
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 # Create directories for uploads and output
 RUN mkdir -p uploads output
 
-# Copy package files
+# Copy package files first (for better caching)
 COPY package*.json ./
 
 # Install dependencies
@@ -26,7 +26,14 @@ COPY . .
 RUN npm run build
 
 # Expose the port your app runs on
-EXPOSE 3000
+EXPOSE 5000
 
-# Start the application
-CMD [ "npm", "start" ] 
+# Add environment variables that Render will provide
+ENV PORT=5000
+ENV NODE_ENV=production
+ENV CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+ENV CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+ENV CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+
+# Start the application using the built version
+CMD ["npm", "start"] 
