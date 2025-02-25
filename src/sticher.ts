@@ -27,14 +27,22 @@ export async function convertPdfToSingleImage(
     // Create temp directory
     await fs.mkdir(options.outDir, { recursive: true });
 
-    // Use pdftoppm directly for Linux environments
-    const tempOutputPrefix = path.join(options.outDir, 'page');
-    
+    // Convert PDF to images using pdf-poppler
+    const opts = {
+      format: 'png',
+      out_dir: options.outDir,
+      out_prefix: 'page',
+      page: null,
+      density: options.density
+    };
+
     try {
+      await pdf.convert(pdfPath, opts);
+    } catch (pdfError) {
+      console.error('PDF conversion error, trying fallback method:', pdfError);
+      // Fallback to pdftoppm if pdf-poppler fails
+      const tempOutputPrefix = path.join(options.outDir, 'page');
       await execPromise(`pdftoppm -png -r ${options.density} "${pdfPath}" "${tempOutputPrefix}"`);
-    } catch (error) {
-      console.error('PDF conversion error:', error);
-      throw new Error('PDF conversion failed');
     }
 
     // Read generated images
