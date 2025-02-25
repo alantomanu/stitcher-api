@@ -140,10 +140,11 @@ app.post("/stitch", async (req: Request, res: Response) => {
 
       res.json({
         success: true,
-        message: "PDF processed and uploaded successfully",
-        imageUrl: cloudinaryUrl,
-        optimizedImageUrl: optimizedImageUrl,
-        uploadResult: uploadResult
+        imageUrl: uploadResult.secure_url,  // HTTPS URL
+        optimizedUrl: cloudinary.url(`stiched_image/${imageName}`, {
+          fetch_format: 'auto',
+          quality: 'auto'
+        })
       });
 
     } catch (uploadError) {

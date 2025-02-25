@@ -1,12 +1,16 @@
-# Use Ubuntu as base image
-FROM ubuntu:22.04
+# Use Ubuntu as base image with explicit platform
+FROM --platform=linux/amd64 ubuntu:22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set Node.js version
 ENV NODE_VERSION=20.x
 
-# Install Node.js and npm
+# Install Node.js, npm and required dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
     && apt-get install -y \
     nodejs \
@@ -17,19 +21,20 @@ RUN apt-get update && apt-get install -y \
     libpoppler-dev \
     libpoppler-cpp-dev \
     python3 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Create directories for uploads and output
-RUN mkdir -p uploads output
+# Create directories for uploads and output with proper permissions
+RUN mkdir -p uploads output && chmod 777 uploads output
 
-# Copy package files first (for better caching)
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies with specific platform
+RUN npm install --platform=linux --arch=x64
 
 # Copy source code
 COPY . .
@@ -37,15 +42,12 @@ COPY . .
 # Build TypeScript code
 RUN npm run build
 
-# Expose the port your app runs on
+# Expose port
 EXPOSE 5000
 
-# Add environment variables that Render will provide
-ENV PORT=5000
+# Set production environment
 ENV NODE_ENV=production
-ENV CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-ENV CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-ENV CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+ENV PORT=5000
 
-# Start the application using the built version
+# Start the application
 CMD ["npm", "start"] 
