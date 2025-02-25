@@ -77,3 +77,4 @@ export async function convertPdfToSingleImage(
     throw error;
   }
 }
+
