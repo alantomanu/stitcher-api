@@ -1,5 +1,5 @@
-# Use Ubuntu as base image with explicit platform
-FROM --platform=linux/amd64 ubuntu:22.04
+# Use Ubuntu as base image
+FROM ubuntu:22.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set Node.js version
 ENV NODE_VERSION=20.x
 
-# Install Node.js, npm and required dependencies
+# Install Node.js, npm, and required dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -33,8 +33,8 @@ RUN mkdir -p uploads output && chmod 777 uploads output
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with specific platform
-RUN npm install --platform=linux --arch=x64
+# Install dependencies
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -50,4 +50,4 @@ ENV NODE_ENV=production
 ENV PORT=5000
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["npm", "start"]
