@@ -8,7 +8,6 @@ WORKDIR /usr/src/app
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     build-essential \
-    pdftoppm \
     poppler-data \
     && rm -rf /var/lib/apt/lists/*
 
