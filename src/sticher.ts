@@ -2,6 +2,9 @@ const sharp = require('sharp');
 const pdf = require('pdf-poppler');
 const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 interface PdfToImageOptions {
   format: "png" | "jpg";
@@ -24,20 +27,30 @@ export async function convertPdfToSingleImage(
     // Create temp directory
     await fs.mkdir(options.outDir, { recursive: true });
 
-    // Convert PDF to images
-    await pdf.convert(pdfPath, {
-      format: options.format,
-      out_dir: options.outDir,
-      out_prefix: "page",
-      density: options.density,
-    });
+    // Use pdftoppm directly for Linux environments
+    const tempOutputPrefix = path.join(options.outDir, 'page');
+    
+    try {
+      await execPromise(`pdftoppm -png -r ${options.density} "${pdfPath}" "${tempOutputPrefix}"`);
+    } catch (error) {
+      console.error('PDF conversion error:', error);
+      throw new Error('PDF conversion failed');
+    }
 
     // Read generated images
     const files = await fs.readdir(options.outDir);
     const imageFiles = files
       .filter((file: string) => file.startsWith("page"))
-      .sort((a: string, b: string) => parseInt(a.match(/\d+/)?.[0] || "0") - parseInt(b.match(/\d+/)?.[0] || "0"))
+      .sort((a: string, b: string) => {
+        const numA = parseInt(a.match(/\d+/)?.[0] || "0");
+        const numB = parseInt(b.match(/\d+/)?.[0] || "0");
+        return numA - numB;
+      })
       .map((file: string) => path.join(options.outDir, file));
+
+    if (imageFiles.length === 0) {
+      throw new Error('No images were generated from PDF');
+    }
 
     // Get dimensions
     const dimensions = await Promise.all(imageFiles.map((file: string) => sharp(file).metadata()));
@@ -64,14 +77,18 @@ export async function convertPdfToSingleImage(
     });
 
     await composite
-      .composite(resizedImages.map(({ buffer, height }) => ({ input: buffer, top: (currentY += height) - height, left: 0 })))
+      .composite(resizedImages.map(({ buffer, height }) => ({
+        input: buffer,
+        top: (currentY += height) - height,
+        left: 0
+      })))
       .toFile(outputPath);
-
-    console.log("Successfully stitched:", outputPath);
 
     // Cleanup
     await Promise.all(imageFiles.map((file: string) => fs.unlink(file)));
     await fs.rmdir(options.outDir);
+
+    console.log("Successfully stitched:", outputPath);
   } catch (error) {
     console.error("Error:", error);
     throw error;

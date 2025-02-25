@@ -4,10 +4,12 @@ FROM node:20-slim
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install system dependencies required for pdf-poppler and sharp
+# Install system dependencies required for PDF processing
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     build-essential \
+    pdftoppm \
+    poppler-data \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directories for uploads and output
