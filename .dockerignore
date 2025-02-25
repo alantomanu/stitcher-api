@@ -10,4 +10,5 @@ output/*
 .DS_Store
 README.md
 Dockerfile
-.dockerignore 
+.dockerignore
+render.yaml 
