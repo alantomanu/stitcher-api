@@ -1,0 +1,30 @@
+{
+    "name": "pdf-to-image-stitcher",
+    "version": "1.0.0",
+    "description": "Convert PDF to a single stitched image using Node.js, TypeScript, and Sharp",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "dev": "ts-node index.ts"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "express-fileupload": "^1.5.1",
+        "pdf-poppler": "^0.2.1",
+        "sharp": "^0.33.5"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/express-fileupload": "^1.4.4",
+        "@types/node": "^20.17.19",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.3"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
