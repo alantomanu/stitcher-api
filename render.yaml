@@ -3,7 +3,7 @@ services:
     name: pdf-stitcher-api
     env: docker
     plan: free
-    buildCommand: docker build --platform=linux/amd64 -t pdf-stitcher-api .
+    buildCommand: docker build --platform linux/amd64 -t pdf-stitcher-api .
     startCommand: npm start
     envVars:
       - key: NODE_ENV

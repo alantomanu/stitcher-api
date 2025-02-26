@@ -13,6 +13,7 @@ import fileUpload from "express-fileupload";
 import fs from "fs";
 import path from "path";
 import { convertPdfToSingleImage } from "./sticher";  // Import the function
+import sharp from "sharp";
 
 import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
@@ -92,13 +93,25 @@ app.post("/stitch", async (req: Request, res: Response) => {
     const outputPath = path.join(outputDir, outputFileName);
     await convertPdfToSingleImage(pdfPath, outputPath);
 
-    // Upload to Cloudinary with optimized settings
+    // Compress the image before uploading to Cloudinary
+    const compressedOutputPath = path.join(outputDir, `compressed_${Date.now()}.png`);
+    await sharp(outputPath)
+      .resize(2000, null, { // Limit width to 2000px
+        withoutEnlargement: true,
+        fit: 'inside'
+      })
+      .png({ 
+        quality: 80,
+        compressionLevel: 9
+      })
+      .toFile(compressedOutputPath);
+
     try {
       const timestamp = Date.now();
       const imageName = `stitched_${timestamp}`;
       
       const uploadResult = await cloudinary.uploader.upload(
-        outputPath,
+        compressedOutputPath, // Use compressed image
         {
           public_id: imageName,
           folder: 'stiched_image',
@@ -106,41 +119,25 @@ app.post("/stitch", async (req: Request, res: Response) => {
           overwrite: true
         }
       );
-      console.log('Upload successful:', uploadResult);
-
-      const cloudinaryUrl = `https://res.cloudinary.com/dfivs4n49/raw/upload/v1740385239/stiched_image/${imageName}`;
-      const optimizedImageUrl = cloudinary.url(`stiched_image/${imageName}`, {
-        fetch_format: 'auto',
-        quality: 'auto'
-      });
 
       // Cleanup files and folders
       try {
-        // Delete individual files first
         await fs.promises.unlink(pdfPath);
         await fs.promises.unlink(outputPath);
+        await fs.promises.unlink(compressedOutputPath);
 
-        // Check if folders are empty and delete them
         const uploadFiles = await fs.promises.readdir(uploadDir);
         const outputFiles = await fs.promises.readdir(outputDir);
 
-        if (uploadFiles.length === 0) {
-          await fs.promises.rmdir(uploadDir);
-          console.log('Uploads folder removed');
-        }
-
-        if (outputFiles.length === 0) {
-          await fs.promises.rmdir(outputDir);
-          console.log('Output folder removed');
-        }
+        if (uploadFiles.length === 0) await fs.promises.rmdir(uploadDir);
+        if (outputFiles.length === 0) await fs.promises.rmdir(outputDir);
       } catch (cleanupError) {
         console.error('Cleanup error:', cleanupError);
-        // Continue with response even if cleanup fails
       }
 
       res.json({
         success: true,
-        imageUrl: uploadResult.secure_url,  // HTTPS URL
+        imageUrl: uploadResult.secure_url,
         optimizedUrl: cloudinary.url(`stiched_image/${imageName}`, {
           fetch_format: 'auto',
           quality: 'auto'

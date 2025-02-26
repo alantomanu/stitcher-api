@@ -1,5 +1,4 @@
 const sharp = require('sharp');
-const pdf = require('pdf-poppler');
 const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
@@ -24,28 +23,20 @@ export async function convertPdfToSingleImage(
   }
 ): Promise<void> {
   try {
+    console.log('Starting PDF conversion...');
+    
     // Create temp directory
     await fs.mkdir(options.outDir, { recursive: true });
-
-    // Convert PDF to images using pdf-poppler
-    const opts = {
-      format: 'png',
-      out_dir: options.outDir,
-      out_prefix: 'page',
-      page: null,
-      density: options.density
-    };
-
-    try {
-      await pdf.convert(pdfPath, opts);
-    } catch (pdfError) {
-      console.error('PDF conversion error, trying fallback method:', pdfError);
-      // Fallback to pdftoppm if pdf-poppler fails
-      const tempOutputPrefix = path.join(options.outDir, 'page');
-      await execPromise(`pdftoppm -png -r ${options.density} "${pdfPath}" "${tempOutputPrefix}"`);
-    }
+    
+    // Convert PDF to images using pdftoppm directly
+    const tempOutputPrefix = path.join(options.outDir, 'page');
+    const command = `pdftoppm -png -r ${options.density} "${pdfPath}" "${tempOutputPrefix}"`;
+    
+    console.log('Running conversion command:', command);
+    await execPromise(command);
 
     // Read generated images
+    console.log('Reading generated images...');
     const files = await fs.readdir(options.outDir);
     const imageFiles = files
       .filter((file: string) => file.startsWith("page"))
@@ -60,10 +51,14 @@ export async function convertPdfToSingleImage(
       throw new Error('No images were generated from PDF');
     }
 
+    console.log(`Found ${imageFiles.length} images to process`);
+
     // Get dimensions
     const dimensions = await Promise.all(imageFiles.map((file: string) => sharp(file).metadata()));
     const maxWidth = Math.max(...dimensions.map((d) => d.width || 0));
     const totalHeight = dimensions.reduce((sum, dim) => sum + (dim.height || 0), 0);
+
+    console.log(`Processing images with dimensions: ${maxWidth}x${totalHeight}`);
 
     // Resize images
     const resizedImages = await Promise.all(
@@ -74,6 +69,7 @@ export async function convertPdfToSingleImage(
     );
 
     // Create final stitched image
+    console.log('Creating final stitched image...');
     let currentY = 0;
     const composite = sharp({
       create: {
@@ -93,12 +89,13 @@ export async function convertPdfToSingleImage(
       .toFile(outputPath);
 
     // Cleanup
+    console.log('Cleaning up temporary files...');
     await Promise.all(imageFiles.map((file: string) => fs.unlink(file)));
     await fs.rmdir(options.outDir);
 
     console.log("Successfully stitched:", outputPath);
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in convertPdfToSingleImage:", error);
     throw error;
   }
 }
